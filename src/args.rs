@@ -20,9 +20,37 @@ pub struct SilicaArgs {
     #[arg(short, long, value_enum, default_value_t = DigitSize::Medium)]
     pub digit_size: DigitSize,
 
-    // TODO: Specify colors for digits, text, ascii, blink
-    // TODO: Turn off blinking
-    // TODO: Allow user to give second text that displays in AppState::Elapsed
+    /// Color of the digits in the timer
+    #[arg(long, default_value_t = 2)]
+    #[arg(value_parser = clap::value_parser!(u8).range(0..9))]
+    pub digit_color: u8,
+
+    /// Color of the text alongside the timer
+    #[arg(long, default_value_t = 7)]
+    #[arg(value_parser = clap::value_parser!(u8).range(0..9))]
+    pub text_color: u8,
+
+    /// Color of the ascii art alongside the timer
+    #[arg(long, default_value_t = 7)]
+    #[arg(value_parser = clap::value_parser!(u8).range(0..9))]
+    pub ascii_color: u8,
+
+    /// Color of the blinking digits in the timer
+    #[arg(long, default_value_t = 1)]
+    #[arg(value_parser = clap::value_parser!(u8).range(0..9))]
+    pub blink_color: u8,
+
+    /// Turn off blinking
+    #[arg(long)]
+    pub noblink: bool,
+
+    /// Second text that displays after timer has elapsed
+    #[arg(long)]
+    pub post_text: Option<String>,
+
+    /// Don't show ascii art
+    #[arg(long)]
+    pub noascii: bool,
 }
 
 #[derive(Copy, Clone, ValueEnum)]

@@ -15,8 +15,15 @@ pub struct App {
     pub quit: bool,
     pub time: Duration,
     pub text: String,
+    pub post_text: Option<String>,
     pub blink: bool,
+    pub noblink: bool,
+    pub noascii: bool,
     pub digit_size: DigitSize,
+    pub digit_color: u8,
+    pub text_color: u8,
+    pub ascii_color: u8,
+    pub blink_color: u8,
 }
 
 impl App {
@@ -26,8 +33,15 @@ impl App {
             quit: false,
             time: Duration::new(args.time, 0),
             text: args.text.unwrap_or(String::new()),
+            post_text: args.post_text,
             blink: false,
+            noblink: args.noblink,
+            noascii: args.noascii,
             digit_size: args.digit_size,
+            digit_color: args.digit_color,
+            text_color: args.text_color,
+            ascii_color: args.ascii_color,
+            blink_color: args.blink_color,
         }
     }
 
@@ -40,7 +54,7 @@ impl App {
                 }
             },
             AppState::Elapsed => {
-                self.blink = !self.blink;
+                self.blink = !self.blink && !self.noblink;
             },
         }
     }

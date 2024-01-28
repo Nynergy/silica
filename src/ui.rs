@@ -22,7 +22,10 @@ use tui::{
 };
 
 use crate::{
-    app::App,
+    app::{
+        App,
+        AppState,
+    },
     args::DigitSize,
 };
 
@@ -60,7 +63,7 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
         DigitSize::Medium => 3,
         DigitSize::Large => 5,
     };
-    let counter_width = ASCII_WIDTH + 1 + (4 * digit_width) + 1;
+    let counter_width = (if app.noascii { 0 } else { ASCII_WIDTH + 1 }) + (4 * digit_width) + 1;
     let min_width = cmp::max(counter_width, app.text.len() as u16);
     if (f.size().height < TOTAL_HEIGHT + 1) || (f.size().width < min_width) {
         f.render_widget(Clear, f.size());
@@ -90,11 +93,16 @@ fn render_text<B: Backend>(
     chunk: Rect,
     app: &mut App
 ) {
-    let text = Paragraph::new(app.text.clone())
+    let text = match app.state {
+        AppState::Counting => app.text.clone(),
+        AppState::Elapsed => app.post_text.clone().unwrap_or(app.text.clone()),
+    };
+
+    let text = Paragraph::new(text)
         .block(Block::default())
         .style(
             Style::default()
-            .fg(Color::White)
+            .fg(Color::Indexed(app.text_color))
         )
         .alignment(Alignment::Center);
 
@@ -114,8 +122,8 @@ fn render_counter<B: Backend>(
         .constraints(
             [
             Constraint::Length(chunk.width / 2 - counter_width / 2),
-            Constraint::Length(ASCII_WIDTH),
-            Constraint::Length(1),
+            Constraint::Length(if app.noascii { 0 } else { ASCII_WIDTH }),
+            Constraint::Length(if app.noascii { 0 } else { 1 }),
             Constraint::Length(digit_width),
             Constraint::Length(digit_width),
             Constraint::Length(1),
@@ -126,7 +134,9 @@ fn render_counter<B: Backend>(
         )
         .split(chunk);
 
-    render_ascii(f, chunks[1]);
+    if !app.noascii {
+        render_ascii(f, chunks[1], app);
+    }
 
     let time = mmss_from_duration(app.time);
     for (i, digit) in time.chars().enumerate() {
@@ -140,7 +150,11 @@ fn render_counter<B: Backend>(
             .map(|s| Spans::from(Span::raw(s)))
             .collect::<Vec<_>>();
 
-        let color = if app.blink { Color::Red } else { Color::Green };
+        let color = if app.blink {
+            Color::Indexed(app.blink_color)
+        } else {
+            Color::Indexed(app.digit_color)
+        };
 
         let para = Paragraph::new(para)
             .block(Block::default())
@@ -159,7 +173,8 @@ fn render_counter<B: Backend>(
 
 fn render_ascii<B: Backend>(
     f: &mut Frame<B>,
-    chunk: Rect
+    chunk: Rect,
+    app: &App,
 ) {
     let ascii = raw_para!(
         "+====+",
@@ -173,7 +188,7 @@ fn render_ascii<B: Backend>(
         .block(Block::default())
         .style(
             Style::default()
-            .fg(Color::White)
+            .fg(Color::Indexed(app.ascii_color))
         );
 
     f.render_widget(ascii, chunk);
