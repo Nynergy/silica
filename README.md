@@ -4,6 +4,8 @@ A sand timer for the terminal
 
 ------------------------------------------------------------------------------
 
+![banner](banner.png)
+
 ## What is silica and why does it exist?
 
 _silica_ is a sand timer for the terminal. You give it a time in seconds to
