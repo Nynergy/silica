@@ -1,5 +1,10 @@
 use std::time::Duration;
 
+use crate::args::{
+    DigitSize,
+    SilicaArgs
+};
+
 pub enum AppState {
     Counting,
     Elapsed
@@ -11,16 +16,18 @@ pub struct App {
     pub time: Duration,
     pub text: String,
     pub blink: bool,
+    pub digit_size: DigitSize,
 }
 
 impl App {
-    pub fn new(time: u64, text: Option<String>) -> Self {
+    pub fn new(args: SilicaArgs) -> Self {
         Self {
             state: AppState::Counting,
             quit: false,
-            time: Duration::new(time, 0),
-            text: text.unwrap_or(String::new()),
+            time: Duration::new(args.time, 0),
+            text: args.text.unwrap_or(String::new()),
             blink: false,
+            digit_size: args.digit_size,
         }
     }
 

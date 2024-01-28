@@ -21,14 +21,16 @@ use tui::{
     Frame,
 };
 
-use crate::app::*;
+use crate::{
+    app::App,
+    args::DigitSize,
+};
 
-type Segment = (String, String, String);
+type Segments = Vec<String>;
 
 const ASCII_WIDTH: u16 = 6;
-const DIGIT_WIDTH: u16 = 4;
 const COUNTER_HEIGHT: u16 = 5;
-const COUNTER_WIDTH: u16 = ASCII_WIDTH + 1 + (4 * DIGIT_WIDTH) + 1;
+//const COUNTER_WIDTH: u16 = ASCII_WIDTH + 1 + (4 * DIGIT_WIDTH) + 1;
 const TOTAL_HEIGHT: u16 = COUNTER_HEIGHT + 2;
 
 macro_rules! raw_para {
@@ -48,7 +50,18 @@ macro_rules! raw_para {
 }
 
 pub fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
-    let min_width = cmp::max(COUNTER_WIDTH, app.text.len() as u16);
+    let digit_width = match app.digit_size {
+        DigitSize::Small => 1,
+        DigitSize::Medium => 4,
+        DigitSize::Large => 6,
+    };
+    let digit_height = match app.digit_size {
+        DigitSize::Small => 1,
+        DigitSize::Medium => 3,
+        DigitSize::Large => 5,
+    };
+    let counter_width = ASCII_WIDTH + 1 + (4 * digit_width) + 1;
+    let min_width = cmp::max(counter_width, app.text.len() as u16);
     if (f.size().height < TOTAL_HEIGHT + 1) || (f.size().width < min_width) {
         f.render_widget(Clear, f.size());
         return;
@@ -69,7 +82,7 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
         .split(f.size());
 
     render_text(f, chunks[1], app);
-    render_counter(f, chunks[3], app);
+    render_counter(f, chunks[3], app, counter_width, digit_width, digit_height);
 }
 
 fn render_text<B: Backend>(
@@ -91,20 +104,23 @@ fn render_text<B: Backend>(
 fn render_counter<B: Backend>(
     f: &mut Frame<B>,
     chunk: Rect,
-    app: &mut App
+    app: &mut App,
+    counter_width: u16,
+    digit_width: u16,
+    digit_height: u16,
 ) {
     let chunks = Layout::default()
         .direction(Direction::Horizontal)
         .constraints(
             [
-            Constraint::Length(chunk.width / 2 - COUNTER_WIDTH / 2),
+            Constraint::Length(chunk.width / 2 - counter_width / 2),
             Constraint::Length(ASCII_WIDTH),
             Constraint::Length(1),
-            Constraint::Length(DIGIT_WIDTH),
-            Constraint::Length(DIGIT_WIDTH),
+            Constraint::Length(digit_width),
+            Constraint::Length(digit_width),
             Constraint::Length(1),
-            Constraint::Length(DIGIT_WIDTH),
-            Constraint::Length(DIGIT_WIDTH),
+            Constraint::Length(digit_width),
+            Constraint::Length(digit_width),
             ]
             .as_ref()
         )
@@ -114,17 +130,15 @@ fn render_counter<B: Backend>(
 
     let time = mmss_from_duration(app.time);
     for (i, digit) in time.chars().enumerate() {
-        let seg1;
-        let seg2;
-        let seg3;
+        let segments;
         if let Some(digit) = digit.to_digit(10) {
-            (seg1, seg2, seg3) = segments_from_digit(digit);
+            segments = segments_from_digit(digit, app);
         } else {
-            seg1 = String::from(" ");
-            seg2 = String::from(":");
-            seg3 = String::from(" ");
+            segments = separator_segments(app);
         }
-        let para = raw_para!(seg1, seg2, seg3);
+        let para = segments.iter()
+            .map(|s| Spans::from(Span::raw(s)))
+            .collect::<Vec<_>>();
 
         let color = if app.blink { Color::Red } else { Color::Green };
 
@@ -137,7 +151,7 @@ fn render_counter<B: Backend>(
 
         // We need to shift the digit chunks down a row
         let c = chunks[i+3];
-        let digit_chunk = Rect::new(c.x, c.y+1, c.width, c.height-2);
+        let digit_chunk = Rect::new(c.x, c.y + COUNTER_HEIGHT / 2 - digit_height / 2, c.width, digit_height);
 
         f.render_widget(para, digit_chunk);
     }
@@ -172,78 +186,210 @@ fn mmss_from_duration(d: Duration) -> String {
     format!("{minutes:02}:{seconds:02}")
 }
 
-fn segments_from_digit(digit: u32) -> Segment {
+fn segments_from_digit(digit: u32, app: &App) -> Segments {
+    match app.digit_size {
+        DigitSize::Small => small_segments_from_digit(digit),
+        DigitSize::Medium => medium_segments_from_digit(digit),
+        DigitSize::Large => large_segments_from_digit(digit),
+    }
+}
+
+fn small_segments_from_digit(digit: u32) -> Segments {
+    vec![format!("{digit}")]
+}
+
+fn medium_segments_from_digit(digit: u32) -> Segments {
     match digit {
         0 => {
-            (
+            vec![
                 String::from("┌──┐"),
                 String::from("│  │"),
                 String::from("└──┘"),
-            )
+            ]
         },
         1 => {
-            (
+            vec![
                 String::from("  ┐ "),
                 String::from("  │ "),
                 String::from("  ╵ "),
-            )
+            ]
         },
         2 => {
-            (
+            vec![
                 String::from("╶──┐"),
                 String::from("┌──┘"),
                 String::from("└──╴"),
-            )
+            ]
         },
         3 => {
-            (
+            vec![
                 String::from("╶──┐"),
                 String::from(" ──┤"),
                 String::from("╶──┘"),
-            )
+            ]
         },
         4 => {
-            (
+            vec![
                 String::from("╷  ╷"),
                 String::from("└──┤"),
                 String::from("   ╵"),
-            )
+            ]
         },
         5 => {
-            (
+            vec![
                 String::from("┌──╴"),
                 String::from("└──┐"),
                 String::from("╶──┘"),
-            )
+            ]
         },
         6 => {
-            (
+            vec![
                 String::from("┌──╴"),
                 String::from("├──┐"),
                 String::from("└──┘"),
-            )
+            ]
         },
         7 => {
-            (
+            vec![
                 String::from("╶──┐"),
                 String::from("   │"),
                 String::from("   ╵"),
-            )
+            ]
         },
         8 => {
-            (
+            vec![
                 String::from("┌──┐"),
                 String::from("├──┤"),
                 String::from("└──┘"),
-            )
+            ]
         },
         9 => {
-            (
+            vec![
                 String::from("┌──┐"),
                 String::from("└──┤"),
                 String::from("╶──┘"),
-            )
+            ]
         },
         _ => panic!("'{digit}' is not a valid digit!")
+    }
+}
+
+fn large_segments_from_digit(digit: u32) -> Segments {
+    match digit {
+        0 => {
+            vec![
+                String::from("┌────┐"),
+                String::from("│    │"),
+                String::from("│    │"),
+                String::from("│    │"),
+                String::from("└────┘"),
+            ]
+        },
+        1 => {
+            vec![
+                String::from("   ╶┐ "),
+                String::from("    │ "),
+                String::from("    │ "),
+                String::from("    │ "),
+                String::from("    ╵ "),
+            ]
+        },
+        2 => {
+            vec![
+                String::from("╶────┐"),
+                String::from("     │"),
+                String::from("┌────┘"),
+                String::from("│     "),
+                String::from("└────╴"),
+            ]
+        },
+        3 => {
+            vec![
+                String::from("╶────┐"),
+                String::from("     │"),
+                String::from(" ────┤"),
+                String::from("     │"),
+                String::from("╶────┘"),
+            ]
+        },
+        4 => {
+            vec![
+                String::from("╷    ╷"),
+                String::from("│    │"),
+                String::from("└────┤"),
+                String::from("     │"),
+                String::from("     ╵"),
+            ]
+        },
+        5 => {
+            vec![
+                String::from("┌────╴"),
+                String::from("│     "),
+                String::from("└────┐"),
+                String::from("     │"),
+                String::from("╶────┘"),
+            ]
+        },
+        6 => {
+            vec![
+                String::from("┌────╴"),
+                String::from("│     "),
+                String::from("├────┐"),
+                String::from("│    │"),
+                String::from("└────┘"),
+            ]
+        },
+        7 => {
+            vec![
+                String::from("╶────┐"),
+                String::from("     │"),
+                String::from("     │"),
+                String::from("     │"),
+                String::from("     ╵"),
+            ]
+        },
+        8 => {
+            vec![
+                String::from("┌────┐"),
+                String::from("│    │"),
+                String::from("├────┤"),
+                String::from("│    │"),
+                String::from("└────┘"),
+            ]
+        },
+        9 => {
+            vec![
+                String::from("┌────┐"),
+                String::from("│    │"),
+                String::from("└────┤"),
+                String::from("     │"),
+                String::from("╶────┘"),
+            ]
+        },
+        _ => panic!("'{digit}' is not a valid digit!")
+    }
+}
+
+fn separator_segments(app: &App) -> Segments {
+    match app.digit_size {
+        DigitSize::Small => {
+            vec![String::from(":")]
+        },
+        DigitSize::Medium => {
+            vec![
+                String::from(" "),
+                String::from(":"),
+                String::from(" "),
+            ]
+        }
+        DigitSize::Large => {
+            vec![
+                String::from(" "),
+                String::from("◦"),
+                String::from(" "),
+                String::from("◦"),
+                String::from(" "),
+            ]
+        }
     }
 }

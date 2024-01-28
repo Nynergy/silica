@@ -52,7 +52,7 @@ fn main() -> DynResult<()> {
     let mut terminal = init_terminal()?;
     terminal.clear()?;
 
-    let app = App::new(args.time, args.text);
+    let app = App::new(args);
     let tick_rate = Duration::from_millis(1000);
     let res = run_app(&mut terminal, app, tick_rate);
 
